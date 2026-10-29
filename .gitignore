@@ -4,3 +4,6 @@ docs/HANDOFF.md
 .DS_Store
 __pycache__/
 *.pyc
+
+# Cargo build output (runner/target and any later crate)
+target/
