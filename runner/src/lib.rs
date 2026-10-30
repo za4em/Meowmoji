@@ -1,7 +1,7 @@
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 mod apple;
 mod buffer;
-#[cfg(not(target_os = "ios"))]
+#[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
 mod litert;
 mod runtime;
 
@@ -21,6 +21,7 @@ const STATUS_MALFORMED_WINDOW: i32 = 2;
 const STATUS_OUTPUT_TOO_SMALL: i32 = 3;
 const STATUS_MODEL_FILE_MISSING: i32 = 4;
 const STATUS_RUNTIME_NOT_CONNECTED: i32 = 5;
+const STATUS_RUNTIME_FAILED: i32 = 6;
 
 /// Run one window.
 ///
@@ -89,5 +90,6 @@ fn status_for_error(error: RunError) -> i32 {
         RunError::OutputTooSmall => STATUS_OUTPUT_TOO_SMALL,
         RunError::ModelFileMissing => STATUS_MODEL_FILE_MISSING,
         RunError::RuntimeNotConnected => STATUS_RUNTIME_NOT_CONNECTED,
+        RunError::RuntimeFailed => STATUS_RUNTIME_FAILED,
     }
 }

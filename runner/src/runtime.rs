@@ -2,10 +2,10 @@ use std::sync::{Mutex, OnceLock};
 
 use crate::EmojiScores;
 use crate::TOKEN_SLOTS;
-#[cfg(target_os = "ios")]
+#[cfg(any(target_os = "ios", target_os = "macos"))]
 use crate::apple::AppleRuntime;
 use crate::buffer::Window;
-#[cfg(not(target_os = "ios"))]
+#[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
 use crate::litert::LiteRtRuntime;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,12 +25,14 @@ impl Accelerator {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) enum RunError {
     NullPointer,
     MalformedWindow,
     OutputTooSmall,
     ModelFileMissing,
     RuntimeNotConnected,
+    RuntimeFailed,
 }
 
 /// LiteRT and the Apple runtime.
@@ -90,13 +92,13 @@ fn model_file_must_exist(model_path: &str) -> Result<(), RunError> {
 }
 
 fn model_for_this_build() -> LoadedModel {
-    #[cfg(target_os = "ios")]
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
     {
         LoadedModel::new(Box::new(AppleRuntime))
     }
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
     {
-        LoadedModel::new(Box::new(LiteRtRuntime))
+        LoadedModel::new(Box::new(LiteRtRuntime::new()))
     }
 }
 

@@ -1,6 +1,7 @@
 .venv/
 desert-ant-core/
 docs/HANDOFF.md
+docs/litert-future-options.md
 .DS_Store
 __pycache__/
 *.pyc
