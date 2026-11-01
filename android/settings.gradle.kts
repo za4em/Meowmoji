@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Meowmoji"
 include(":app")
+include(":sdk")
