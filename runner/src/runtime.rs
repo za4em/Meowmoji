@@ -1,10 +1,9 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 
 use crate::EmojiScores;
 use crate::TOKEN_SLOTS;
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 use crate::apple::AppleRuntime;
-use crate::buffer::Window;
 #[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
 use crate::litert::LiteRtRuntime;
 
@@ -43,44 +42,35 @@ pub(crate) trait ModelRuntime: Send {
 }
 
 struct LoadedModel {
-    compiled_model_path: Option<String>,
-    compiled_accelerator: Option<Accelerator>,
     runtime: Box<dyn ModelRuntime>,
 }
 
-impl LoadedModel {
-    fn new(runtime: Box<dyn ModelRuntime>) -> Self {
-        Self {
-            compiled_model_path: None,
-            compiled_accelerator: None,
-            runtime,
-        }
-    }
+/// One compiled model. The pointer returned by `meowmoji_open` is this value.
+pub(crate) struct ModelHandle {
+    model: Mutex<LoadedModel>,
+}
 
-    fn already_compiled(&self, model_path: &str, accelerator: Accelerator) -> bool {
-        self.compiled_model_path.as_deref() == Some(model_path)
-            && self.compiled_accelerator == Some(accelerator)
+impl ModelHandle {
+    pub(crate) fn score(&self, token_ids: &[i32; TOKEN_SLOTS]) -> Result<EmojiScores, RunError> {
+        let mut loaded = self
+            .model
+            .lock()
+            .unwrap_or_else(|crashed| crashed.into_inner());
+        loaded.runtime.score_tokens(token_ids)
     }
+}
 
-    fn compile_if_needed(
-        &mut self,
-        model_path: &str,
-        accelerator: Accelerator,
-    ) -> Result<(), RunError> {
-        if self.already_compiled(model_path, accelerator) {
-            return Ok(());
-        }
-        model_file_must_exist(model_path)?;
-        self.runtime.compile_model(model_path, accelerator)?;
-        self.compiled_model_path = Some(model_path.to_owned());
-        self.compiled_accelerator = Some(accelerator);
-        Ok(())
-    }
-
-    fn score_window(&mut self, window: &Window) -> Result<EmojiScores, RunError> {
-        self.compile_if_needed(&window.model_path, window.accelerator)?;
-        self.runtime.score_tokens(&window.token_ids)
-    }
+/// Compile one model for one accelerator. The caller frees it with `meowmoji_close`.
+pub(crate) fn open_model(
+    model_path: &str,
+    accelerator: Accelerator,
+) -> Result<ModelHandle, RunError> {
+    model_file_must_exist(model_path)?;
+    let mut loaded = model_for_this_build();
+    loaded.runtime.compile_model(model_path, accelerator)?;
+    Ok(ModelHandle {
+        model: Mutex::new(loaded),
+    })
 }
 
 fn model_file_must_exist(model_path: &str) -> Result<(), RunError> {
@@ -94,23 +84,25 @@ fn model_file_must_exist(model_path: &str) -> Result<(), RunError> {
 fn model_for_this_build() -> LoadedModel {
     #[cfg(any(target_os = "ios", target_os = "macos"))]
     {
-        LoadedModel::new(Box::new(AppleRuntime))
+        LoadedModel {
+            runtime: Box::new(AppleRuntime),
+        }
     }
     #[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
     {
-        LoadedModel::new(Box::new(LiteRtRuntime::new()))
+        LoadedModel {
+            runtime: Box::new(LiteRtRuntime::new()),
+        }
     }
 }
 
-fn shared_loaded_model() -> &'static Mutex<LoadedModel> {
-    static LOADED_MODEL: OnceLock<Mutex<LoadedModel>> = OnceLock::new();
-    LOADED_MODEL.get_or_init(|| Mutex::new(model_for_this_build()))
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// Score one window on the runtime compiled into this build.
-pub(crate) fn run_window(window: &Window) -> Result<EmojiScores, RunError> {
-    let mut loaded_model = shared_loaded_model()
-        .lock()
-        .unwrap_or_else(|crashed| crashed.into_inner());
-    loaded_model.score_window(window)
+    #[test]
+    fn missing_model_file_fails_before_compile() {
+        let error = open_model("no/such/model.tflite", Accelerator::Cpu);
+        assert!(matches!(error, Err(RunError::ModelFileMissing)));
+    }
 }

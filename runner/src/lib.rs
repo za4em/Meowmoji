@@ -5,8 +5,10 @@ mod buffer;
 mod litert;
 mod runtime;
 
-use buffer::{read_window, write_emoji_scores};
-use runtime::{RunError, run_window};
+use std::ffi::c_void;
+
+use buffer::{read_model_request, read_token_ids, write_emoji_scores};
+use runtime::{ModelHandle, RunError, open_model};
 
 /// Four token ids, the same width as `model/train.py`.
 pub(crate) const TOKEN_SLOTS: usize = 4;
@@ -23,35 +25,80 @@ const STATUS_MODEL_FILE_MISSING: i32 = 4;
 const STATUS_RUNTIME_NOT_CONNECTED: i32 = 5;
 const STATUS_RUNTIME_FAILED: i32 = 6;
 
-/// Run one window.
+/// Compile one model.
 ///
 /// `input` is little-endian: a `u32` path length, the UTF-8 path to the model
-/// file, a `u32` accelerator (`0` CPU, `1` GPU), then four `i32` token ids.
-/// `output` receives one hundred little-endian `f32` scores, in label order.
-/// Returns `0` when the scores are written.
+/// file, then a `u32` accelerator (`0` CPU, `1` GPU).
+/// Returns the handle, or null when compilation fails. `status_ptr` receives
+/// the status code when it is not null.
+#[unsafe(no_mangle)]
+pub extern "C" fn meowmoji_open(
+    input_ptr: *const u8,
+    input_len: usize,
+    status_ptr: *mut i32,
+) -> *mut c_void {
+    match open_from_buffer(input_ptr, input_len) {
+        Ok(handle) => {
+            write_status(status_ptr, STATUS_OK);
+            Box::into_raw(Box::new(handle)) as *mut c_void
+        }
+        Err(error) => {
+            write_status(status_ptr, status_for_error(error));
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Score one window on a handle from `meowmoji_open`.
+///
+/// `input` is four little-endian `i32` token ids. `output` receives one hundred
+/// little-endian `f32` scores, in label order. Returns `0` when the scores are
+/// written.
 #[unsafe(no_mangle)]
 pub extern "C" fn meowmoji_run(
+    handle: *mut c_void,
     input_ptr: *const u8,
     input_len: usize,
     output_ptr: *mut u8,
     output_len: usize,
 ) -> i32 {
-    match run_buffers(input_ptr, input_len, output_ptr, output_len) {
+    match run_buffers(handle, input_ptr, input_len, output_ptr, output_len) {
         Ok(()) => STATUS_OK,
         Err(error) => status_for_error(error),
     }
 }
 
+/// Free a handle from `meowmoji_open`. Null does nothing. The pointer must not
+/// be used again, and must not be closed twice.
+#[unsafe(no_mangle)]
+pub extern "C" fn meowmoji_close(handle: *mut c_void) {
+    if handle.is_null() {
+        return;
+    }
+    drop(unsafe { Box::from_raw(handle as *mut ModelHandle) });
+}
+
+fn open_from_buffer(input_ptr: *const u8, input_len: usize) -> Result<ModelHandle, RunError> {
+    let input_bytes = bytes_from_pointer(input_ptr, input_len)?;
+    let request = read_model_request(input_bytes)?;
+    open_model(&request.model_path, request.accelerator)
+}
+
 fn run_buffers(
+    handle: *mut c_void,
     input_ptr: *const u8,
     input_len: usize,
     output_ptr: *mut u8,
     output_len: usize,
 ) -> Result<(), RunError> {
+    if handle.is_null() {
+        return Err(RunError::NullPointer);
+    }
     let input_bytes = bytes_from_pointer(input_ptr, input_len)?;
     let output_bytes = writable_bytes_from_pointer(output_ptr, output_len)?;
-    let window = read_window(input_bytes)?;
-    let emoji_scores = run_window(&window)?;
+    let token_ids = read_token_ids(input_bytes)?;
+    let model = unsafe { &*(handle as *const ModelHandle) };
+    let emoji_scores = model.score(&token_ids)?;
     write_emoji_scores(&emoji_scores, output_bytes)
 }
 
@@ -80,6 +127,12 @@ fn byte_count_fits_slice(byte_count: usize) -> Result<(), RunError> {
         Err(RunError::MalformedWindow)
     } else {
         Ok(())
+    }
+}
+
+fn write_status(status_ptr: *mut i32, status: i32) {
+    if !status_ptr.is_null() {
+        unsafe { *status_ptr = status }
     }
 }
 

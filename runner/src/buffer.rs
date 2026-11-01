@@ -1,10 +1,9 @@
 use crate::runtime::{Accelerator, RunError};
 use crate::{EMOJI_COUNT, EmojiScores, TOKEN_SLOTS};
 
-pub(crate) struct Window {
+pub(crate) struct ModelRequest {
     pub model_path: String,
     pub accelerator: Accelerator,
-    pub token_ids: [i32; TOKEN_SLOTS],
 }
 
 struct ByteReader<'a> {
@@ -50,8 +49,8 @@ impl<'a> ByteReader<'a> {
     }
 }
 
-/// Read one window from the input buffer.
-pub(crate) fn read_window(bytes: &[u8]) -> Result<Window, RunError> {
+/// Read the model file and accelerator that `meowmoji_open` compiles.
+pub(crate) fn read_model_request(bytes: &[u8]) -> Result<ModelRequest, RunError> {
     let mut reader = ByteReader::new(bytes);
     let path_byte_count = reader.read_u32_le()? as usize;
     let path_bytes = reader.read_bytes(path_byte_count)?;
@@ -62,6 +61,18 @@ pub(crate) fn read_window(bytes: &[u8]) -> Result<Window, RunError> {
         return Err(RunError::MalformedWindow);
     }
     let accelerator = Accelerator::from_u32(reader.read_u32_le()?)?;
+    if !reader.is_at_end() {
+        return Err(RunError::MalformedWindow);
+    }
+    Ok(ModelRequest {
+        model_path,
+        accelerator,
+    })
+}
+
+/// Read the four token ids that `meowmoji_run` scores.
+pub(crate) fn read_token_ids(bytes: &[u8]) -> Result<[i32; TOKEN_SLOTS], RunError> {
+    let mut reader = ByteReader::new(bytes);
     let mut token_ids = [0; TOKEN_SLOTS];
     for token_id in &mut token_ids {
         *token_id = reader.read_i32_le()?;
@@ -69,11 +80,7 @@ pub(crate) fn read_window(bytes: &[u8]) -> Result<Window, RunError> {
     if !reader.is_at_end() {
         return Err(RunError::MalformedWindow);
     }
-    Ok(Window {
-        model_path,
-        accelerator,
-        token_ids,
-    })
+    Ok(token_ids)
 }
 
 /// Write the one hundred emoji scores into the output buffer.
@@ -104,30 +111,39 @@ mod tests {
         bytes.extend_from_slice(&value.to_le_bytes());
     }
 
-    fn window_bytes(path: &str, accelerator: u32, token_ids: [i32; TOKEN_SLOTS]) -> Vec<u8> {
+    fn model_request_bytes(path: &str, accelerator: u32) -> Vec<u8> {
         let mut bytes = Vec::new();
         push_u32_le(&mut bytes, path.len() as u32);
         bytes.extend_from_slice(path.as_bytes());
         push_u32_le(&mut bytes, accelerator);
-        for token_id in token_ids {
-            push_i32_le(&mut bytes, token_id);
-        }
         bytes
     }
 
     #[test]
-    fn reads_a_cpu_window() {
-        let bytes = window_bytes("model/meowmoji.tflite", 0, [7, 8, 0, 0]);
-        let window = read_window(&bytes).unwrap();
-        assert_eq!(window.model_path, "model/meowmoji.tflite");
-        assert_eq!(window.accelerator, Accelerator::Cpu);
-        assert_eq!(window.token_ids, [7, 8, 0, 0]);
+    fn reads_a_cpu_model_request() {
+        let bytes = model_request_bytes("model/meowmoji.tflite", 0);
+        let request = read_model_request(&bytes).unwrap();
+        assert_eq!(request.model_path, "model/meowmoji.tflite");
+        assert_eq!(request.accelerator, Accelerator::Cpu);
+    }
+
+    #[test]
+    fn reads_four_token_ids() {
+        let mut bytes = Vec::new();
+        for token_id in [7, 8, 0, 0] {
+            push_i32_le(&mut bytes, token_id);
+        }
+        assert_eq!(read_token_ids(&bytes).unwrap(), [7, 8, 0, 0]);
     }
 
     #[test]
     fn rejects_a_short_buffer() {
         assert!(matches!(
-            read_window(&[1, 0, 0, 0]),
+            read_model_request(&[1, 0, 0, 0]),
+            Err(RunError::MalformedWindow)
+        ));
+        assert!(matches!(
+            read_token_ids(&[1, 0, 0, 0]),
             Err(RunError::MalformedWindow)
         ));
     }
