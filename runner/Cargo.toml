@@ -6,3 +6,6 @@ edition = "2024"
 [lib]
 name = "meowmoji"
 crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni-sys = "0.3"

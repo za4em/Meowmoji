@@ -17,13 +17,16 @@ pub(crate) const EMOJI_COUNT: usize = 100;
 
 pub(crate) type EmojiScores = [f32; EMOJI_COUNT];
 
-const STATUS_OK: i32 = 0;
-const STATUS_NULL_POINTER: i32 = 1;
+pub(crate) const STATUS_OK: i32 = 0;
+pub(crate) const STATUS_NULL_POINTER: i32 = 1;
 const STATUS_MALFORMED_WINDOW: i32 = 2;
 const STATUS_OUTPUT_TOO_SMALL: i32 = 3;
 const STATUS_MODEL_FILE_MISSING: i32 = 4;
 const STATUS_RUNTIME_NOT_CONNECTED: i32 = 5;
-const STATUS_RUNTIME_FAILED: i32 = 6;
+pub(crate) const STATUS_RUNTIME_FAILED: i32 = 6;
+
+#[cfg(target_os = "android")]
+mod android_jni;
 
 /// Compile one model.
 ///
