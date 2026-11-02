@@ -1,14 +1,12 @@
 #[cfg(any(target_os = "ios", target_os = "macos"))]
 mod apple;
-mod buffer;
 #[cfg(any(target_os = "android", target_os = "linux", target_os = "windows"))]
 mod litert;
 mod runtime;
 
-use std::ffi::c_void;
+use std::ffi::{CStr, c_char, c_void};
 
-use buffer::{read_model_request, read_token_ids, write_emoji_scores};
-use runtime::{ModelHandle, RunError, open_model};
+use runtime::{Accelerator, ModelHandle, RunError, open_model};
 
 /// Four token ids, the same width as `model/train.py`.
 pub(crate) const TOKEN_SLOTS: usize = 4;
@@ -30,17 +28,16 @@ mod android_jni;
 
 /// Compile one model.
 ///
-/// `input` is little-endian: a `u32` path length, the UTF-8 path to the model
-/// file, then a `u32` accelerator (`0` CPU, `1` GPU).
-/// Returns the handle, or null when compilation fails. `status_ptr` receives
-/// the status code when it is not null.
+/// `path` is a null-terminated UTF-8 path to the model file. `accelerator` is
+/// `0` for CPU and `1` for GPU. Returns the handle, or null when compilation
+/// fails. `status_ptr` receives the status code when it is not null.
 #[unsafe(no_mangle)]
 pub extern "C" fn meowmoji_open(
-    input_ptr: *const u8,
-    input_len: usize,
+    path: *const c_char,
+    accelerator: u32,
     status_ptr: *mut i32,
 ) -> *mut c_void {
-    match open_from_buffer(input_ptr, input_len) {
+    match open_from_path(path, accelerator) {
         Ok(handle) => {
             write_status(status_ptr, STATUS_OK);
             Box::into_raw(Box::new(handle)) as *mut c_void
@@ -54,18 +51,18 @@ pub extern "C" fn meowmoji_open(
 
 /// Score one window on a handle from `meowmoji_open`.
 ///
-/// `input` is four little-endian `i32` token ids. `output` receives one hundred
-/// little-endian `f32` scores, in label order. Returns `0` when the scores are
-/// written.
+/// `token_ids` holds `token_count` ids. This model scores exactly four.
+/// `scores` receives one hundred `f32` values, in label order. Returns `0`
+/// when the scores are written.
 #[unsafe(no_mangle)]
 pub extern "C" fn meowmoji_run(
     handle: *mut c_void,
-    input_ptr: *const u8,
-    input_len: usize,
-    output_ptr: *mut u8,
-    output_len: usize,
+    token_ids: *const i32,
+    token_count: usize,
+    scores: *mut f32,
+    score_count: usize,
 ) -> i32 {
-    match run_buffers(handle, input_ptr, input_len, output_ptr, output_len) {
+    match score_tokens(handle, token_ids, token_count, scores, score_count) {
         Ok(()) => STATUS_OK,
         Err(error) => status_for_error(error),
     }
@@ -81,56 +78,43 @@ pub extern "C" fn meowmoji_close(handle: *mut c_void) {
     drop(unsafe { Box::from_raw(handle as *mut ModelHandle) });
 }
 
-fn open_from_buffer(input_ptr: *const u8, input_len: usize) -> Result<ModelHandle, RunError> {
-    let input_bytes = bytes_from_pointer(input_ptr, input_len)?;
-    let request = read_model_request(input_bytes)?;
-    open_model(&request.model_path, request.accelerator)
+fn open_from_path(path: *const c_char, accelerator: u32) -> Result<ModelHandle, RunError> {
+    if path.is_null() {
+        return Err(RunError::NullPointer);
+    }
+    let path = unsafe { CStr::from_ptr(path) }
+        .to_str()
+        .map_err(|_| RunError::MalformedWindow)?;
+    if path.is_empty() {
+        return Err(RunError::MalformedWindow);
+    }
+    open_model(path, Accelerator::from_u32(accelerator)?)
 }
 
-fn run_buffers(
+fn score_tokens(
     handle: *mut c_void,
-    input_ptr: *const u8,
-    input_len: usize,
-    output_ptr: *mut u8,
-    output_len: usize,
+    token_ids: *const i32,
+    token_count: usize,
+    scores: *mut f32,
+    score_count: usize,
 ) -> Result<(), RunError> {
-    if handle.is_null() {
+    if handle.is_null() || token_ids.is_null() || scores.is_null() {
         return Err(RunError::NullPointer);
     }
-    let input_bytes = bytes_from_pointer(input_ptr, input_len)?;
-    let output_bytes = writable_bytes_from_pointer(output_ptr, output_len)?;
-    let token_ids = read_token_ids(input_bytes)?;
+    if token_count != TOKEN_SLOTS || token_count > isize::MAX as usize {
+        return Err(RunError::MalformedWindow);
+    }
+    if score_count < EMOJI_COUNT || score_count > isize::MAX as usize {
+        return Err(RunError::OutputTooSmall);
+    }
+    let token_ids = unsafe { std::slice::from_raw_parts(token_ids, TOKEN_SLOTS) };
+    let mut tokens = [0; TOKEN_SLOTS];
+    tokens.copy_from_slice(token_ids);
     let model = unsafe { &*(handle as *const ModelHandle) };
-    let emoji_scores = model.score(&token_ids)?;
-    write_emoji_scores(&emoji_scores, output_bytes)
-}
-
-fn bytes_from_pointer<'a>(pointer: *const u8, byte_count: usize) -> Result<&'a [u8], RunError> {
-    if pointer.is_null() {
-        return Err(RunError::NullPointer);
-    }
-    byte_count_fits_slice(byte_count)?;
-    Ok(unsafe { std::slice::from_raw_parts(pointer, byte_count) })
-}
-
-fn writable_bytes_from_pointer<'a>(
-    pointer: *mut u8,
-    byte_count: usize,
-) -> Result<&'a mut [u8], RunError> {
-    if pointer.is_null() {
-        return Err(RunError::NullPointer);
-    }
-    byte_count_fits_slice(byte_count)?;
-    Ok(unsafe { std::slice::from_raw_parts_mut(pointer, byte_count) })
-}
-
-/// Reject a byte count larger than `isize::MAX`.
-fn byte_count_fits_slice(byte_count: usize) -> Result<(), RunError> {
-    if byte_count > isize::MAX as usize {
-        Err(RunError::MalformedWindow)
-    } else {
-        Ok(())
-    }
+    let emoji_scores = model.score(&tokens)?;
+    let scores = unsafe { std::slice::from_raw_parts_mut(scores, EMOJI_COUNT) };
+    scores.copy_from_slice(&emoji_scores);
+    Ok(())
 }
 
 fn write_status(status_ptr: *mut i32, status: i32) {
