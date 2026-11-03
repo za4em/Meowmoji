@@ -8,8 +8,15 @@ internal object MeowmojiNative {
     fun load() {
         if (loaded) return
 
-        System.loadLibrary("LiteRt")
-        System.loadLibrary("meowmoji")
+        try {
+            System.loadLibrary("LiteRt")
+            System.loadLibrary("meowmoji")
+        } catch (error: UnsatisfiedLinkError) {
+            throw MeowmojiException(
+                "Meowmoji model cannot be prepared: libraries failed to load",
+                error,
+            )
+        }
         loaded = true
     }
 
