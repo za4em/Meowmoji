@@ -1,4 +1,4 @@
-//! JNI names for `com.meowmoji.sdk.Meowmoji`. The `jni` crate borrows the string
+//! JNI names for `com.meowmoji.sdk.MeowmojiNative`. The `jni` crate borrows the string
 //! and the arrays, and releases them when the guards drop. `with_env` catches a
 //! panic so it cannot unwind into the JVM.
 
@@ -16,7 +16,7 @@ use crate::{
 /// Compile one model. `path` is the model file. `accelerator` is `0` for CPU
 /// and `1` for GPU. Returns the handle, or `0` when compilation fails.
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_meowmoji_sdk_Meowmoji_nativeOpen<'local>(
+pub extern "system" fn Java_com_meowmoji_sdk_MeowmojiNative_nativeOpen<'local>(
     mut env: EnvUnowned<'local>,
     _thiz: JObject<'local>,
     path: JString<'local>,
@@ -32,7 +32,7 @@ pub extern "system" fn Java_com_meowmoji_sdk_Meowmoji_nativeOpen<'local>(
 /// Score one window. `token_ids` holds four ids. `scores` receives one hundred
 /// floats, in label order. Returns the `meowmoji_run` status code.
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_meowmoji_sdk_Meowmoji_nativeRun<'local>(
+pub extern "system" fn Java_com_meowmoji_sdk_MeowmojiNative_nativeRun<'local>(
     mut env: EnvUnowned<'local>,
     _thiz: JObject<'local>,
     handle: jlong,
@@ -49,7 +49,7 @@ pub extern "system" fn Java_com_meowmoji_sdk_Meowmoji_nativeRun<'local>(
 
 /// Free a handle from `nativeOpen`.
 #[unsafe(no_mangle)]
-pub extern "system" fn Java_com_meowmoji_sdk_Meowmoji_nativeClose<'local>(
+pub extern "system" fn Java_com_meowmoji_sdk_MeowmojiNative_nativeClose<'local>(
     _env: EnvUnowned<'local>,
     _thiz: JObject<'local>,
     handle: jlong,
