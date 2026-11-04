@@ -11,3 +11,6 @@ target/
 
 # LiteRT library used only while linking the Android build
 runner/litert/
+
+# Phrase rows for training. Not shipped.
+model/data/

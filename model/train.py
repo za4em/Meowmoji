@@ -7,8 +7,9 @@ import tensorflow as tf
 
 MODEL_DIR = Path(__file__).resolve().parent
 LABELS_PATH = MODEL_DIR / "labels.txt"
-TRAIN_PATH = MODEL_DIR / "train.tsv"
-HOLDOUT_PATH = MODEL_DIR / "holdout.tsv"
+DATA_DIR = MODEL_DIR / "data"
+TRAIN_PATH = DATA_DIR / "train.tsv"
+HOLDOUT_PATH = DATA_DIR / "holdout.tsv"
 VOCAB_PATH = MODEL_DIR / "vocab.txt"
 TFLITE_PATH = MODEL_DIR / "meowmoji.tflite"
 
