@@ -19,7 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.meowmoji.compose.rememberMatches
+import com.meowmoji.compose.rememberMatchDebounced
 import com.meowmoji.compose.rememberMeowmoji
 import com.meowmoji.sdk.Accelerator
 import com.meowmoji.ui.theme.MeowmojiTheme
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
 fun Content(modifier: Modifier = Modifier) {
     val meowmoji = rememberMeowmoji(Accelerator.CPU)
     var input by rememberSaveable { mutableStateOf("") }
-    val result = rememberMatches(meowmoji, input, limit = 2, debounce = 500.milliseconds)
+    val result = rememberMatchDebounced(meowmoji, input, limit = 2, debounce = 500.milliseconds)
 
     Column(
         modifier = modifier.padding(16.dp),

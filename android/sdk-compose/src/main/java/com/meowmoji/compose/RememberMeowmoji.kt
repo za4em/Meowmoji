@@ -57,7 +57,7 @@ fun rememberMeowmoji(accelerator: Accelerator = Accelerator.CPU): Meowmoji? {
  * @param limit how many emoji to return.
  */
 @Composable
-fun rememberMatch(
+fun rememberMatchLatest(
     meowmoji: Meowmoji?,
     text: String,
     limit: Int = 3,
@@ -89,7 +89,7 @@ fun rememberMatch(
  */
 @OptIn(FlowPreview::class)
 @Composable
-fun rememberMatches(
+fun rememberMatchDebounced(
     meowmoji: Meowmoji?,
     text: String,
     limit: Int = 3,
