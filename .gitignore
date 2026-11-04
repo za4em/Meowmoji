@@ -8,3 +8,6 @@ __pycache__/
 
 # Cargo build output (runner/target and any later crate)
 target/
+
+# LiteRT library used only while linking the Android build
+runner/litert/
