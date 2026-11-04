@@ -188,8 +188,10 @@ def write_vocabulary(path: Path, vocabulary: list[str]) -> None:
 
 
 def export_tflite(model: keras.Model, path: Path) -> None:
-    """Write the graph and the learned numbers as one .tflite file."""
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    """Write one .tflite file that scores a single row of four token ids."""
+    token_ids = keras.Input(shape=(TOKEN_SLOTS,), batch_size=1, dtype="int32", name="token_ids")
+    fixed = keras.Model(token_ids, model(token_ids, training=False))
+    converter = tf.lite.TFLiteConverter.from_keras_model(fixed)
     path.write_bytes(converter.convert())
 
 
