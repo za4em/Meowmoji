@@ -2,7 +2,7 @@
 
 Meowmoji turns a short phrase into an animal emoji. The model runs on the device through [LiteRT](https://ai.google.dev/edge/litert). The model and LiteRT ship with Meowmoji.
 
-Creating `Meowmoji` compiles the model for the selected chip, CPU or GPU. `match` returns a list of emoji and a score, highest first. A higher score is a better fit. Don't forget to `close` the model when you are done.
+The first `match` compiles the model for the selected chip, CPU or GPU. `match` returns a list of emoji and a score, highest first. A higher score is a better fit. Don't forget to `close` the model when you are done.
 
 Meowmoji is `arm64-v8a` and needs Android 7 (API 24).
 

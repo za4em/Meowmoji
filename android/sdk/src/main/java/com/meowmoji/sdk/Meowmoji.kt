@@ -21,10 +21,10 @@ class MeowmojiException(
 ) : Exception(message, cause)
 
 /**
- * A compiled Meowmoji model for the selected chip.
+ * A Meowmoji model for the selected chip.
  *
- * Construction prepares the model. [match] returns a sorted list of emoji with
- * scores that fit a phrase. [close] frees the model so it can no longer be used.
+ * [match] returns a sorted list of emoji with scores that fit a phrase.
+ * [close] frees the model so it can no longer be used.
  *
  * ```
  * Meowmoji(context, Accelerator.CPU).use { meowmoji ->
@@ -34,30 +34,23 @@ class MeowmojiException(
  *
  * @param context app [Context].
  * @param accelerator chip the model compiles for.
- * @throws IOException if model files cannot be read.
- * @throws MeowmojiException if the model cannot be prepared.
+ * @throws IOException if the word list, the labels, or the model file cannot be read.
+ * @throws MeowmojiException if the model file cannot be stored.
  */
 class Meowmoji(
     context: Context,
-    accelerator: Accelerator,
+    private val accelerator: Accelerator,
 ) : AutoCloseable {
 
-    @Volatile
     private var handle: Long? = null
+    private var closed = false
 
+    private val modelPath = MeowmojiAssets.modelPath(context)
     private val wordIds = MeowmojiAssets.wordIds(context)
     private val labels = MeowmojiAssets.labels(context)
 
     init {
         MeowmojiNative.load()
-        val opened = MeowmojiNative.nativeOpen(
-            MeowmojiAssets.modelPath(context),
-            accelerator.nativeValue,
-        )
-        if (opened == 0L) {
-            throw MeowmojiException("Meowmoji model cannot be prepared: compilation failed")
-        }
-        handle = opened
     }
 
     /**
@@ -68,21 +61,31 @@ class Meowmoji(
      * @return emoji with scores, sorted by score.
      * @throws IllegalStateException if this model is already closed.
      * @throws IllegalArgumentException if [limit] is not positive.
-     * @throws MeowmojiException if scoring fails.
+     * @throws MeowmojiException if the model cannot be prepared or scoring fails.
      */
     @Synchronized
     fun match(text: String, limit: Int = 3): List<EmojiScore> {
-        val openHandle = handle ?: throw IllegalStateException("Meowmoji model is already closed")
+        if (closed) throw IllegalStateException("Meowmoji model is already closed")
         if (limit <= 0) throw IllegalArgumentException("limit must be positive")
 
         val chunks = text.toWords().toIds().toChunks()
         if (chunks.isEmpty()) return emptyList()
 
+        val openHandle = handle ?: open()
         return chunks
             .flatMap { ids -> run(openHandle, ids).take(limit) }
             .sortedByDescending { it.score }
             .distinctBy { it.emoji }
             .take(limit)
+    }
+
+    private fun open(): Long {
+        val opened = MeowmojiNative.nativeOpen(modelPath, accelerator.nativeValue)
+        if (opened == 0L) {
+            throw MeowmojiException("Meowmoji model cannot be prepared: compilation failed")
+        }
+        handle = opened
+        return opened
     }
 
     private fun run(handle: Long, ids: IntArray): List<EmojiScore> {
@@ -126,9 +129,9 @@ class Meowmoji(
     /** Frees the model so it can no longer be used. */
     @Synchronized
     override fun close() {
-        val openHandle = handle ?: return
-        handle = null
-        MeowmojiNative.nativeClose(openHandle)
+        if (closed) return
+        closed = true
+        handle?.let(MeowmojiNative::nativeClose)
     }
 
     companion object {
