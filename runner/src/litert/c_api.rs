@@ -34,10 +34,6 @@ pub(super) struct RankedTensorType {
 
 const _: () = assert!(std::mem::size_of::<RankedTensorType>() == 72);
 
-pub(super) fn destroy_environment(environment: LiteRtEnvironment) {
-    unsafe { LiteRtDestroyEnvironment(environment) }
-}
-
 pub(super) fn destroy_model(model: LiteRtModel) {
     unsafe { LiteRtDestroyModel(model) }
 }
@@ -60,7 +56,6 @@ unsafe extern "C" {
         options: *const c_void,
         environment: *mut LiteRtEnvironment,
     ) -> i32;
-    fn LiteRtDestroyEnvironment(environment: LiteRtEnvironment);
     pub(super) fn LiteRtCreateModelFromFile(
         environment: LiteRtEnvironment,
         filename: *const c_char,

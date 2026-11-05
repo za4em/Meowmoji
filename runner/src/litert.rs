@@ -6,8 +6,7 @@ use crate::runtime::{Accelerator, ModelRuntime, RunError};
 use crate::{EmojiScores, TOKEN_SLOTS};
 use c_api::{
     LiteRtCompiledModel, LiteRtEnvironment, LiteRtModel, LiteRtOptions, LiteRtTensorBuffer,
-    destroy_compiled_model, destroy_environment, destroy_model, destroy_options,
-    destroy_tensor_buffer,
+    destroy_compiled_model, destroy_model, destroy_options, destroy_tensor_buffer,
 };
 
 pub(crate) struct LiteRtRuntime {
@@ -60,9 +59,6 @@ impl Drop for CompiledLiteRtModel {
         }
         if !self.model.is_null() {
             destroy_model(self.model);
-        }
-        if !self.environment.is_null() {
-            destroy_environment(self.environment);
         }
     }
 }

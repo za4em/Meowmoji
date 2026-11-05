@@ -1,4 +1,5 @@
 use std::ffi::CString;
+use std::sync::Mutex;
 
 use crate::runtime::{Accelerator, RunError};
 
@@ -15,6 +16,8 @@ use super::c_api::{
     LiteRtTensorBufferRequirements, RankedTensorType, destroy_options,
 };
 
+static ENVIRONMENT: Mutex<usize> = Mutex::new(0);
+
 #[derive(Clone, Copy)]
 enum TensorEnd {
     TokenIds,
@@ -26,7 +29,7 @@ pub(super) fn compile_litert_model(
     accelerator: Accelerator,
 ) -> Result<CompiledLiteRtModel, RunError> {
     let mut compiled = CompiledLiteRtModel::empty();
-    compiled.environment = create_environment()?;
+    compiled.environment = shared_environment()?;
     compiled.model = model_from_file(compiled.environment, model_path)?;
     compiled.options = options_for_accelerator(accelerator)?;
     compiled.compiled_model =
@@ -44,6 +47,18 @@ pub(super) fn compile_litert_model(
         TensorEnd::EmojiScores,
     )?;
     Ok(compiled)
+}
+
+fn shared_environment() -> Result<LiteRtEnvironment, RunError> {
+    let mut slot = ENVIRONMENT
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if *slot != 0 {
+        return Ok(*slot as LiteRtEnvironment);
+    }
+    let created = create_environment()?;
+    *slot = created as usize;
+    Ok(created)
 }
 
 fn create_environment() -> Result<LiteRtEnvironment, RunError> {
