@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meowmoji runs</title>
+<link rel="stylesheet" href="report.css">
+</head>
+<body>
+<main>
+  <h1>Meowmoji runs</h1>
+  <dl class="intro">
+    <div><dt>Typical match</dt><dd>Median time of 40 matches of “cat”, after 5 warmup matches. The number under it is how sure the model is.</dd></div>
+    <div><dt>Since last run</dt><dd>Change in that typical time from the previous run of the same phone and chip.</dd></div>
+    <div><dt>First match</dt><dd>Time of the first match, including compiling the model.</dd></div>
+    <div><dt>Slow matches</dt><dd>Time within which 95% of the timed matches finished.</dd></div>
+    <div><dt>Memory left</dt><dd>Memory still held after close. App is the whole process. Native heap is the C memory.</dd></div>
+  </dl>
+  <div id="runs"></div>
+</main>
+<script src="runs.js"></script>
+<script src="report.js"></script>
+</body>
+</html>

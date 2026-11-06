@@ -17,3 +17,6 @@ model/data/
 
 # Pulled performance runs.
 out/
+
+# Generated data for the run list.
+scripts/report/runs.js
