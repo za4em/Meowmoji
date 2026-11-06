@@ -91,7 +91,7 @@ fn options_for_accelerator(accelerator: Accelerator) -> Result<LiteRtOptions, Ru
     }
     let chip = match accelerator {
         Accelerator::Cpu => LITERT_CPU,
-        Accelerator::Gpu => LITERT_GPU,
+        Accelerator::Gpu => LITERT_GPU | LITERT_CPU,
     };
     let set = unsafe { LiteRtSetOptionsHardwareAccelerators(options, chip) };
     if set != LITERT_OK {
