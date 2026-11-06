@@ -1,70 +1,39 @@
-package com.meowmoji.sdk
+package com.litert.benchmark
 
 import android.content.Context
 import android.os.Build
-import android.os.Bundle
 import android.os.Debug
 import android.util.Log
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
-import org.junit.Assert.assertEquals
-import org.junit.Test
-import org.junit.runner.RunWith
+import com.meowmoji.sdk.Accelerator
+import com.meowmoji.sdk.EmojiScore
+import com.meowmoji.sdk.Meowmoji
+import com.meowmoji.sdk.MeowmojiException
 import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
 
 /**
- * Times a fixed phrase list on CPU and GPU and records process memory.
+ * Times `"cat"` on CPU and GPU and writes one line per chip to `meowmoji-perf.txt`.
  *
- * The first [Meowmoji.match] compiles the model, so its time is kept apart
- * from the later matches. Every match is `"cat"` and must return 🐈.
- * A compile failure is written as `error` on that chip's line. The test
- * does not fail on a speed or a memory number.
- *
- * One model is created for each chip. It runs the phrase once, then
- * [WARMUP] times, then [SAMPLES] times. The record is one line per chip in
- * logcat, tag `MeowmojiPerf`, and in `meowmoji-perf.txt`.
+ * The first match compiles the model, so its time is kept apart from the later
+ * matches. Every match must return 🐈. A compile failure or a wrong emoji is
+ * written as `error` on that chip's line.
  */
-@RunWith(AndroidJUnit4::class)
-class MeowmojiPerformanceTest {
+object MeowmojiBenchmark {
 
-    private data class Memory(
-        val totalPssKb: Int,
-        val nativeHeapKb: Int,
-        val graphicsKb: Int,
-        val vmHwmKb: Int,
-    )
+    private const val TAG = "MeowmojiPerf"
+    private const val REPORT = "meowmoji-perf.txt"
+    private const val WARMUP = 5
+    private const val SAMPLES = 40
+    private const val PHRASE = "cat"
+    private const val EXPECTED = "🐈"
 
-    private data class TimedMatch(val millis: Double, val top: EmojiScore)
-
-    private data class TimedRun(
-        val firstMatchMs: Double,
-        val steady: List<Double>,
-        val top: EmojiScore,
-        val afterFirst: Memory,
-    )
-
-    private companion object {
-        const val TAG = "MeowmojiPerf"
-        const val REPORT = "meowmoji-perf.txt"
-        const val WARMUP = 5
-        const val SAMPLES = 40
-        const val PHRASE = "cat"
-        const val EXPECTED = "🐈"
-    }
-
-    @Test
-    fun measuresCpuAndGpu() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
+    fun run(context: Context) {
         val lines = mutableListOf<String>()
         for (accelerator in listOf(Accelerator.CPU, Accelerator.GPU)) {
             val line = measure(context, accelerator)
             lines += line
             Log.i(TAG, line)
-            val bundle = Bundle()
-            bundle.putString("meowmoji_perf", line)
-            InstrumentationRegistry.getInstrumentation().sendStatus(0, bundle)
             write(context, lines)
         }
     }
@@ -98,7 +67,9 @@ class MeowmojiPerformanceTest {
     private fun timeMatch(meowmoji: Meowmoji): TimedMatch {
         val (millis, scores) = timed { meowmoji.match(PHRASE) }
         val top = scores.first()
-        assertEquals(PHRASE, EXPECTED, top.emoji)
+        if (top.emoji != EXPECTED) {
+            throw MeowmojiException("expected $EXPECTED was ${top.emoji}")
+        }
         return TimedMatch(millis, top)
     }
 
@@ -159,9 +130,7 @@ class MeowmojiPerformanceTest {
 
     private fun write(context: Context, lines: List<String>) {
         val directory = context.getExternalFilesDir(null) ?: context.filesDir
-        val report = File(directory, REPORT)
-        report.writeText(lines.joinToString("\n") + "\n")
-        Log.i(TAG, "report=${report.absolutePath}")
+        File(directory, REPORT).writeText(lines.joinToString("\n") + "\n")
     }
 
     private fun memory(): Memory {
@@ -205,5 +174,19 @@ class MeowmojiPerformanceTest {
 
     private fun token(value: String): String = value.replace(Regex("\\s+"), "_")
 
+    private data class Memory(
+        val totalPssKb: Int,
+        val nativeHeapKb: Int,
+        val graphicsKb: Int,
+        val vmHwmKb: Int,
+    )
 
+    private data class TimedMatch(val millis: Double, val top: EmojiScore)
+
+    private data class TimedRun(
+        val firstMatchMs: Double,
+        val steady: List<Double>,
+        val top: EmojiScore,
+        val afterFirst: Memory,
+    )
 }

@@ -26,3 +26,4 @@ rootProject.name = "Meowmoji"
 include(":app")
 include(":sdk")
 include(":sdk-compose")
+include(":benchmark")
