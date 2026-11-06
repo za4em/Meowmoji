@@ -15,8 +15,12 @@ runner/litert/
 # Phrase rows for training. Not shipped.
 model/data/
 
-# Pulled performance runs.
-out/
+# Lab downloads. The result lines stay. Video, logcat, and the APK do not.
+out/**
+!out/**/
+!out/meowmoji-perf-*.txt
+!out/**/meowmoji-perf.txt
+!out/**/meowmoji-perf-*.txt
 
 # Generated data for the run list.
 scripts/report/runs.js
