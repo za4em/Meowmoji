@@ -48,3 +48,5 @@ Run the benchmark on a connected phone, or on Firebase Test Lab with gcloud. [AG
 ![Meowmoji report](docs/report.png)
 
 ## Screenshot
+
+![Meowmoji](docs/meowmoji.gif)
