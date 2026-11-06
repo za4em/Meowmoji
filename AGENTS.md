@@ -68,17 +68,13 @@ gcloud storage cp \
 
 Finished phones upload that file while other phones are still queued. Read those files instead of waiting for a phone that stays `Pending`. One execution can die with `Internal System Error` before the app starts. Say which phone failed. Do not treat that as a benchmark result.
 
-Commit the `meowmoji-perf.txt` lines. Leave video, logcat, the APK, and the gcloud log untracked. The report never reads those.
-
 ## Report
 
 ```bash
 python3 scripts/report.py
 ```
 
-This reads every `meowmoji-perf.txt` and `meowmoji-perf-*.txt` under `out/` and writes `scripts/report/runs.js`. A path that contains `firebase-` is marked Firebase. Anything else is marked Phone. The page is `scripts/report/index.html`, with `report.css` and `report.js` beside it. Open that file after the script. The script does not open a browser, and the page cannot list `out/` by itself.
-
-`scripts/report/runs.js` is gitignored. Do not commit it.
+`out/` is the download. The script copies every `meowmoji-perf.txt` and `meowmoji-perf-*.txt` into `benchmark/runs/`. A phone file lands at `benchmark/runs/<stamp>.txt`. A lab phone lands at `benchmark/runs/<stamp>/<model>-<version>.txt`. The script then writes `benchmark/report/index.html` from those copies. Styles are in `report.css` beside the page. Open that file. The script does not open a browser.
 
 Each phone run is one group of rows. CPU is above GPU. The columns are:
 

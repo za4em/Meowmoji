@@ -15,7 +15,7 @@ gcloud firebase test android run \
   --type game-loop \
   --app "$apk" \
   --device "${device},locale=en,orientation=portrait" \
-  --timeout 5m \
+  --timeout 2m \
   --directories-to-pull /sdcard/Android/data/com.litert.benchmark/files \
   --results-dir "$results_dir" \
   2>&1 | tee "out/firebase-${stamp}.log"

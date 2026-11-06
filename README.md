@@ -41,4 +41,10 @@ val matches = rememberMatchDebounced(meowmoji, text)
 
 `rememberMatchLatest` scores the current phrase and cancels the previous score. `rememberMatchDebounced` waits for `debounce`, then scores. If a score is already running, it finishes.
 
+## Performance
+
+Run the benchmark on a connected phone, or on Firebase Test Lab with gcloud. [AGENTS.md](AGENTS.md) has the steps, including how the results become a report. The report is [benchmark/report/index.html](benchmark/report/index.html). The result lines are in `benchmark/runs/`.
+
+![Meowmoji report](docs/report.png)
+
 ## Screenshot
