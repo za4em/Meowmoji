@@ -50,3 +50,7 @@ Run the benchmark on a connected phone, or on Firebase Test Lab with gcloud. [AG
 ## Screenshot
 
 ![Meowmoji](docs/meowmoji.gif)
+
+## License
+
+[Apache License 2.0](LICENSE)
