@@ -41,7 +41,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":sdk-compose"))
+    implementation(libs.meowmoji.sdk.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

@@ -10,7 +10,7 @@ Meowmoji is `arm64-v8a` and needs Android 7 (API 24).
 
 ```kotlin
 dependencies {
-    implementation()
+    implementation("io.github.za4em:sdk:0.1.0")
 }
 ```
 
@@ -18,7 +18,7 @@ Compose helpers:
 
 ```kotlin
 dependencies {
-    implementation()
+    implementation("io.github.za4em:sdk-compose:0.1.0")
 }
 ```
 
